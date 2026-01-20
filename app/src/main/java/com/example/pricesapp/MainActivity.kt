@@ -1,1 +1,58 @@
-package com.example.pricesapp\n\nimport android.os.Bundle\nimport androidx.activity.ComponentActivity\nimport androidx.activity.compose.setContent\nimport androidx.activity.enableEdgeToEdge\nimport androidx.compose.foundation.layout.fillMaxSize\nimport androidx.compose.material3.MaterialTheme\nimport androidx.compose.material3.Surface\nimport androidx.compose.ui.Modifier\nimport androidx.navigation.NavType\nimport androidx.navigation.compose.NavHost\nimport androidx.navigation.compose.composable\nimport androidx.navigation.compose.rememberNavController\nimport androidx.navigation.navArgument\nimport com.example.pricesapp.ui.screens.AddProductScreen\nimport com.example.pricesapp.ui.screens.EditProductScreen\nimport com.example.pricesapp.ui.screens.HomeScreen\nimport com.example.pricesapp.ui.theme.PricesAppTheme\n\nclass MainActivity : ComponentActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        enableEdgeToEdge()\n        setContent {\n            PricesAppTheme {\n                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {\n                    val navController = rememberNavController()\n                    NavHost(navController = navController, startDestination = \"home\") {\n                        composable(\"home\") {\n                            HomeScreen(navController = navController)\n                        }\n                        composable(\"add_product\") {\n                            AddProductScreen(navController = navController)\n                        }\n                        composable(\n                            route = \"edit_product/{productId}\",\n                            arguments = listOf(navArgument(\"productId\") { type = NavType.IntType })\n                        ) {\ backStackEntry ->\n                            val productId = backStackEntry.arguments?.getInt(\"productId\")\n                            if (productId != null) {\n                                EditProductScreen(navController = navController, productId = productId)\n                            }\n                        }\n                    }\n                }\n            }\n        }\n    }\n}\n
+package com.example.pricesapp
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.pricesapp.ui.screens.AddProductScreen
+import com.example.pricesapp.ui.screens.EditProductScreen
+import com.example.pricesapp.ui.screens.HomeScreen
+import com.example.pricesapp.ui.theme.PricesAppTheme
+import com.example.pricesapp.ui.viewmodel.ProductViewModel
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            PricesAppTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    val navController = rememberNavController()
+                    val productViewModel: ProductViewModel = viewModel()
+
+                    NavHost(navController = navController, startDestination = "home") {
+                        composable("home") {
+                            HomeScreen(navController = navController, productViewModel = productViewModel)
+                        }
+                        composable("add_product") {
+                            AddProductScreen(navController = navController, productViewModel = productViewModel)
+                        }
+                        composable(
+                            route = "edit_product/{productId}",
+                            arguments = listOf(navArgument("productId") { type = NavType.IntType })
+                        ) { backStackEntry ->
+                            val productId = backStackEntry.arguments?.getInt("productId")
+                            if (productId != null) {
+                                EditProductScreen(
+                                    navController = navController,
+                                    productId = productId,
+                                    productViewModel = productViewModel
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
