@@ -1,3 +1,4 @@
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -52,8 +53,10 @@ dependencies {
     implementation(platform(libs.supabase.bom))
     implementation(libs.postgrest.kt)
     implementation(libs.realtime.kt)
-    implementation(libs.ktor.client.android)
-    implementation(libs.ktor.client.okhttp)
+
+    //ktor
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
 
     // Serialization
     implementation(libs.kotlinx.serialization.json)
