@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -38,13 +39,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.pricesapp.data.Product
+import com.example.pricesapp.ui.viewmodel.AuthViewModel
 import com.example.pricesapp.ui.viewmodel.ProductViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController, productViewModel: ProductViewModel = viewModel()) {
+fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, productViewModel: ProductViewModel = viewModel()) {
     val products by productViewModel.products.collectAsState()
     val searchText by productViewModel.searchText.collectAsState()
+    val isLoading by productViewModel.isLoading.collectAsState()
 
     LaunchedEffect(Unit) {
         productViewModel.fetchProducts()
@@ -61,6 +64,11 @@ fun HomeScreen(navController: NavController, productViewModel: ProductViewModel 
                         placeholder = { Text("Search products") },
                         singleLine = true
                     )
+                },
+                actions = {
+                    IconButton(onClick = { authViewModel.signOut() }) {
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign Out")
+                    }
                 }
             )
         },
@@ -74,7 +82,7 @@ fun HomeScreen(navController: NavController, productViewModel: ProductViewModel 
             it.name.contains(searchText, ignoreCase = true)
         }
 
-        if (products.isEmpty() && searchText.isEmpty()) {
+        if (isLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -82,6 +90,15 @@ fun HomeScreen(navController: NavController, productViewModel: ProductViewModel 
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
+            }
+        } else if (products.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No products found.")
             }
         } else {
             LazyColumn(

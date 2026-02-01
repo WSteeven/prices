@@ -1,91 +1,159 @@
 package com.example.pricesapp.ui.screens
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.pricesapp.data.Product
 import com.example.pricesapp.ui.viewmodel.ProductViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddProductScreen(navController: NavController, productViewModel: ProductViewModel = viewModel()) {
+fun AddProductScreen(
+    navController: NavController,
+    productViewModel: ProductViewModel = viewModel()
+) {
+    val context = LocalContext.current
+
     var name by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
-    var imageUrl by remember { mutableStateOf("") }
     var barcode by remember { mutableStateOf("") }
+
+    val imageUri by productViewModel.selectedImageUri.collectAsState()
+    val imageUrl by productViewModel.uploadedImageUrl.collectAsState()
+    val isUploading by productViewModel.isUploading.collectAsState()
+
+
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            productViewModel.uploadImage(it, context)
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Add Product") })
+            TopAppBar(
+                title = { Text("Add New Product") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            TextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Product Name") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(
-                value = price,
-                onValueChange = { price = it },
-                label = { Text("Price") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(
-                value = imageUrl,
-                onValueChange = { imageUrl = it },
-                label = { Text("Image URL (Optional)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TextField(
-                value = barcode,
-                onValueChange = { barcode = it },
-                label = { Text("Barcode (Optional)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    val product = Product(
-                        name = name,
-                        price = price.toDouble(),
-                        imageUrl = imageUrl.ifEmpty { null },
-                        barcode = barcode.ifEmpty { null }
-                    )
-                    productViewModel.addProduct(product) {
-                        navController.popBackStack()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                Text("Save Product")
+                Column(modifier = Modifier.padding(16.dp)) {
+
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Product Name") },
+                        leadingIcon = { Icon(Icons.Default.Create, null) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = {
+                            if (it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                                price = it
+                            }
+                        },
+                        label = { Text("Price") },
+                        leadingIcon = { Icon(Icons.Default.AttachMoney, null) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = { launcher.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Seleccionar imagen")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    imageUri?.let {
+                        AsyncImage(
+                            model = it,
+                            contentDescription = "Image preview",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = barcode,
+                        onValueChange = { barcode = it },
+                        label = { Text("Barcode (Optional)") },
+                        leadingIcon = { Icon(Icons.Default.QrCodeScanner, null) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            val product = Product(
+                                name = name,
+                                price = price.toDouble(),
+                                imageUrl = imageUrl,
+                                barcode = barcode.ifBlank { null }
+                            )
+                            productViewModel.addProduct(product) {
+                                productViewModel.clearImageState()
+                                navController.popBackStack()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled =
+                            name.isNotBlank() &&
+                                    price.isNotBlank() &&
+                                    !isUploading &&
+                                    (imageUri == null || imageUrl != null),
+                    ) {
+                        Text("Save Product")
+                    }
+                }
             }
         }
     }

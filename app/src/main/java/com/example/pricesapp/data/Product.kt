@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Product(
     @SerialName("id")
-    val id: Int = 0,
+    val id: String = "",
 
     @SerialName("name")
     val name: String,

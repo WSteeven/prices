@@ -48,11 +48,16 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+
 
     // Supabase
     implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
     implementation(libs.postgrest.kt)
     implementation(libs.realtime.kt)
+    implementation(libs.supabase.storage)
+
 
     //ktor
     implementation(libs.ktor.client.core)
