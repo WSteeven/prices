@@ -1,6 +1,7 @@
 package com.example.pricesapp.ui.screens
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.pricesapp.data.Product
+import com.example.pricesapp.ui.components.BarcodeScannerScreen
+import com.example.pricesapp.ui.components.CameraPermission
 import com.example.pricesapp.ui.viewmodel.ProductViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,6 +35,8 @@ fun AddProductScreen(
     var name by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var barcode by remember { mutableStateOf("") }
+    var showScanner by remember { mutableStateOf(false) }
+    var hasCameraPermission by remember { mutableStateOf(false) }
 
     val imageUri by productViewModel.selectedImageUri.collectAsState()
     val imageUrl by productViewModel.uploadedImageUrl.collectAsState()
@@ -44,6 +49,18 @@ fun AddProductScreen(
         uri?.let {
             productViewModel.uploadImage(it, context)
         }
+    }
+    if (!hasCameraPermission) {
+        CameraPermission(
+            onPermissionGranted = { hasCameraPermission = true },
+            onPermissionDenied = {
+                Toast.makeText(
+                    context,
+                    "Permiso de cámara requerido",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        )
     }
 
     Scaffold(
@@ -130,7 +147,23 @@ fun AddProductScreen(
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
-
+                    Button(
+                        onClick = { showScanner = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Escanear código de barras")
+                    }
+                    if (showScanner && hasCameraPermission) {
+                        BarcodeScannerScreen(
+                            onBarcodeScanned = { scannedCode ->
+                                barcode = scannedCode
+                                showScanner = false
+                            },
+                            onClose = { showScanner = false }
+                        )
+                    }
                     Button(
                         onClick = {
                             val product = Product(
