@@ -30,8 +30,19 @@ fun AppNavigation(authViewModel: AuthViewModel, productViewModel: ProductViewMod
         composable("home") {
             HomeScreen(navController, authViewModel, productViewModel)
         }
-        composable("add_product") {
-            AddProductScreen(navController, productViewModel)
+        composable(
+            "add_product?barcode={barcode}",
+            arguments = listOf(navArgument("barcode") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) { backStackEntry ->
+            AddProductScreen(
+                navController,
+                productViewModel,
+                initialBarcode = backStackEntry.arguments?.getString("barcode")
+            )
         }
         composable(
             "edit_product/{productId}",

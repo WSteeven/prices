@@ -28,13 +28,14 @@ import com.example.pricesapp.ui.viewmodel.ProductViewModel
 @Composable
 fun AddProductScreen(
     navController: NavController,
-    productViewModel: ProductViewModel = viewModel()
+    productViewModel: ProductViewModel = viewModel(),
+    initialBarcode: String? = null
 ) {
     val context = LocalContext.current
 
     var name by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
-    var barcode by remember { mutableStateOf("") }
+    var barcode by remember { mutableStateOf(initialBarcode.orEmpty()) }
     var showScanner by remember { mutableStateOf(false) }
     var hasCameraPermission by remember { mutableStateOf(false) }
 

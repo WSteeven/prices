@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
 fun BarcodeScannerScreen(
@@ -50,6 +51,7 @@ fun BarcodeScannerScreen(
                 }
 
                 val scanner = BarcodeScanning.getClient()
+                val alreadyScanned = AtomicBoolean(false)
 
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -68,11 +70,10 @@ fun BarcodeScannerScreen(
 
                         scanner.process(image)
                             .addOnSuccessListener { barcodes ->
-                                for (barcode in barcodes) {
-                                    barcode.rawValue?.let {
-                                        onBarcodeScanned(it)
-                                        cameraProvider.unbindAll()
-                                    }
+                                val code = barcodes.firstNotNullOfOrNull { it.rawValue }
+                                if (code != null && alreadyScanned.compareAndSet(false, true)) {
+                                    cameraProvider.unbindAll()
+                                    onBarcodeScanned(code)
                                 }
                             }
                             .addOnCompleteListener {

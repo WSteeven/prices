@@ -127,6 +127,33 @@ class ProductViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Busca un producto por código de barras: primero en la lista cargada y,
+     * si no está, consulta Supabase (puede haber sido creado por otro usuario).
+     */
+    fun findByBarcode(barcode: String, onResult: (Product?) -> Unit) {
+        val code = barcode.trim()
+        products.value.find { it.barcode == code }?.let {
+            onResult(it)
+            return
+        }
+        viewModelScope.launch {
+            val product = try {
+                SupabaseClient.client.postgrest.from("products")
+                    .select { filter { Product::barcode eq code } }
+                    .decodeList<Product>()
+                    .firstOrNull()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+            if (product != null && products.value.none { it.id == product.id }) {
+                _products.value = _products.value + product
+            }
+            onResult(product)
+        }
+    }
+
     fun getProductById(productId: String): Product? {
         return products.value.find { it.id == productId }
     }
