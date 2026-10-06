@@ -48,6 +48,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
     val products by productViewModel.products.collectAsState()
     val searchText by productViewModel.searchText.collectAsState()
     val isLoading by productViewModel.isLoading.collectAsState()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
 
     LaunchedEffect(Unit) {
         productViewModel.fetchProducts()
@@ -73,8 +74,10 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate("add_product") }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Product")
+            if (isAdmin) {
+                FloatingActionButton(onClick = { navController.navigate("add_product") }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Product")
+                }
             }
         }
     ) { padding ->
@@ -111,7 +114,9 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                     ProductItem(
                         product = product,
                         onEditClick = { navController.navigate("edit_product/${product.id}") },
-                        onDeleteClick = { productViewModel.deleteProduct(product) }
+                        onDeleteClick = if (isAdmin) {
+                            { productViewModel.deleteProduct(product) }
+                        } else null
                     )
                 }
             }
@@ -123,7 +128,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
 fun ProductItem(
     product: Product,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: (() -> Unit)?
 ) {
     Card(
         modifier = Modifier
@@ -151,8 +156,10 @@ fun ProductItem(
                 IconButton(onClick = onEditClick) {
                     Icon(Icons.Default.Edit, contentDescription = "Edit")
                 }
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete")
+                onDeleteClick?.let {
+                    IconButton(onClick = it) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete")
+                    }
                 }
             }
         }

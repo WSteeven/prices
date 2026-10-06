@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pricesapp.data.AuthRepository
 import com.example.pricesapp.data.AuthResult
+import com.example.pricesapp.data.Profile
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +24,13 @@ class AuthViewModel(
     private val _user = MutableStateFlow<UserInfo?>(null)
     val user: StateFlow<UserInfo?> = _user.asStateFlow()
 
+    private val _profile = MutableStateFlow<Profile?>(null)
+    val profile: StateFlow<Profile?> = _profile.asStateFlow()
+
+    val isAdmin: StateFlow<Boolean> = _profile
+        .map { it?.isAdmin == true }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     init {
         restoreSession()
     }
@@ -32,6 +40,14 @@ class AuthViewModel(
         val user = repository.auth.currentUserOrNull()
         _user.value = user
         _isAuthenticated.value = user != null
+        loadProfile()
+    }
+
+    private fun loadProfile() {
+        val userId = _user.value?.id ?: return
+        viewModelScope.launch {
+            _profile.value = repository.fetchProfile(userId)
+        }
     }
 
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -55,6 +71,7 @@ class AuthViewModel(
         viewModelScope.launch {
             repository.signOut()
             _user.value = null
+            _profile.value = null
             _isAuthenticated.value = false
         }
     }

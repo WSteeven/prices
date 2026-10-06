@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val authRepository = AuthRepository(SupabaseClient.auth)
+        val authRepository = AuthRepository(SupabaseClient.auth, SupabaseClient.postgrest)
         val authViewModelFactory = AuthViewModelFactory(authRepository)
         val authViewModel = ViewModelProvider(this, authViewModelFactory)[AuthViewModel::class.java]
 

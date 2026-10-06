@@ -21,6 +21,7 @@ import com.example.pricesapp.ui.viewmodel.ProductViewModel
 fun AppNavigation(authViewModel: AuthViewModel, productViewModel: ProductViewModel = viewModel()) {
     val navController = rememberNavController()
     val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
+    val isAdmin by authViewModel.isAdmin.collectAsState()
 
     NavHost(navController = navController, startDestination = if (isAuthenticated) "home" else "login") {
         composable("login") {
@@ -39,7 +40,7 @@ fun AppNavigation(authViewModel: AuthViewModel, productViewModel: ProductViewMod
             val productId = backStackEntry.arguments
                 ?.getString("productId")
                 ?: return@composable
-            EditProductScreen(navController, productId, productViewModel)
+            EditProductScreen(navController, productId, isAdmin, productViewModel)
         }
         composable("profile") {
             ProfileScreen(authViewModel)

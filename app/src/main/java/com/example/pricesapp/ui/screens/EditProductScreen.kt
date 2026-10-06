@@ -47,6 +47,7 @@ import com.example.pricesapp.ui.viewmodel.ProductViewModel
 fun EditProductScreen(
     navController: NavController,
     productId: String,
+    isAdmin: Boolean,
     productViewModel: ProductViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -130,6 +131,7 @@ fun EditProductScreen(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text("Product Name") },
+                        enabled = isAdmin,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -141,6 +143,7 @@ fun EditProductScreen(
                             if (it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) price = it
                         },
                         label = { Text("Price") },
+                        enabled = isAdmin,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth()
                     )

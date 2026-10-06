@@ -3,6 +3,7 @@ package com.example.pricesapp.data
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.exception.AuthRestException
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.postgrest.Postgrest
 
 sealed class AuthResult {
     object Success : AuthResult()
@@ -10,7 +11,8 @@ sealed class AuthResult {
 }
 
 class AuthRepository(
-    val auth: Auth
+    val auth: Auth,
+    private val postgrest: Postgrest
 ) {
 
     suspend fun signIn(email: String, password: String): AuthResult {
@@ -29,6 +31,16 @@ class AuthRepository(
             }
         } catch (e: Exception) {
             AuthResult.Error("Error inesperado. Intenta nuevamente")
+        }
+    }
+
+    suspend fun fetchProfile(userId: String): Profile? {
+        return try {
+            postgrest.from("profiles")
+                .select { filter { eq("id", userId) } }
+                .decodeSingleOrNull<Profile>()
+        } catch (e: Exception) {
+            null
         }
     }
 
