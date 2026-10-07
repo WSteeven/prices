@@ -28,7 +28,6 @@ import com.example.pricesapp.ui.viewmodel.ProductViewModel
 fun AppNavigation(authViewModel: AuthViewModel, productViewModel: ProductViewModel = viewModel()) {
     val authState by authViewModel.authState.collectAsState()
     val user by authViewModel.user.collectAsState()
-    val isAdmin by authViewModel.isAdmin.collectAsState()
 
     when (authState) {
         AuthState.LOADING -> {
@@ -72,10 +71,10 @@ fun AppNavigation(authViewModel: AuthViewModel, productViewModel: ProductViewMod
             val productId = backStackEntry.arguments
                 ?.getString("productId")
                 ?: return@composable
-            EditProductScreen(navController, productId, isAdmin, productViewModel)
+            EditProductScreen(navController, productId, productViewModel)
         }
         composable("profile") {
-            ProfileScreen(authViewModel)
+            ProfileScreen(navController, authViewModel)
         }
     }
 }

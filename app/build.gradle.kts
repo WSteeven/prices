@@ -1,4 +1,6 @@
 
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -12,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.pricesapp"
+        applicationId = "com.wsteeven.precios"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -21,9 +23,32 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Datos de firma en keystore.properties (fuera de git). Sin ese archivo,
+    // el release se genera sin firmar.
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    val keystoreProps = Properties().apply {
+        if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+    }
+
+    signingConfigs {
+        if (keystorePropsFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.findByName("release")
+            // Solo arquitecturas de teléfonos reales: x86 es para emuladores
+            // y duplicaría el motor del escáner (~11 MB)
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

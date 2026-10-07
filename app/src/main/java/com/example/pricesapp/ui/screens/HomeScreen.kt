@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -66,7 +66,6 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
     val products by productViewModel.products.collectAsState()
     val searchText by productViewModel.searchText.collectAsState()
     val isLoading by productViewModel.isLoading.collectAsState()
-    val isAdmin by authViewModel.isAdmin.collectAsState()
     val units by productViewModel.units.collectAsState()
     val errorMessage by productViewModel.errorMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -134,7 +133,6 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
     scanResult?.let { result ->
         BarcodeResultDialog(
             result = result,
-            isAdmin = isAdmin,
             onDismiss = { scanResult = null },
             onEdit = { product ->
                 scanResult = null
@@ -169,17 +167,15 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                     IconButton(onClick = { requestCamera = true }) {
                         Icon(Icons.Filled.QrCodeScanner, contentDescription = "Buscar por código de barras")
                     }
-                    IconButton(onClick = { authViewModel.signOut() }) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Cerrar sesión")
+                    IconButton(onClick = { navController.navigate("profile") }) {
+                        Icon(Icons.Filled.AccountCircle, contentDescription = "Mi perfil")
                     }
                 }
             )
         },
         floatingActionButton = {
-            if (isAdmin) {
-                FloatingActionButton(onClick = { navController.navigate("add_product") }) {
-                    Icon(Icons.Filled.Add, contentDescription = "Agregar producto")
-                }
+            FloatingActionButton(onClick = { navController.navigate("add_product") }) {
+                Icon(Icons.Filled.Add, contentDescription = "Agregar producto")
             }
         }
     ) { padding ->
@@ -223,9 +219,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                             product = product,
                             unitLabel = units.find { it.id == product.unitId }?.abbreviation,
                             onEditClick = { navController.navigate("edit_product/${product.id}") },
-                            onDeleteClick = if (isAdmin) {
-                                { productToDelete = product }
-                            } else null
+                            onDeleteClick = { productToDelete = product }
                         )
                     }
                 }
@@ -239,7 +233,7 @@ fun ProductItem(
     product: Product,
     unitLabel: String?,
     onEditClick: () -> Unit,
-    onDeleteClick: (() -> Unit)?
+    onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -267,10 +261,8 @@ fun ProductItem(
                 IconButton(onClick = onEditClick) {
                     Icon(Icons.Default.Edit, contentDescription = "Editar")
                 }
-                onDeleteClick?.let {
-                    IconButton(onClick = it) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar")
-                    }
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                 }
             }
         }
@@ -282,7 +274,6 @@ data class BarcodeScanResult(val barcode: String, val product: Product?)
 @Composable
 fun BarcodeResultDialog(
     result: BarcodeScanResult,
-    isAdmin: Boolean,
     onDismiss: () -> Unit,
     onEdit: (Product) -> Unit,
     onCreate: (String) -> Unit
@@ -314,9 +305,10 @@ fun BarcodeResultDialog(
             }
         },
         confirmButton = {
-            when {
-                product != null -> TextButton(onClick = { onEdit(product) }) { Text("Editar") }
-                isAdmin -> TextButton(onClick = { onCreate(result.barcode) }) { Text("Crear producto") }
+            if (product != null) {
+                TextButton(onClick = { onEdit(product) }) { Text("Editar") }
+            } else {
+                TextButton(onClick = { onCreate(result.barcode) }) { Text("Crear producto") }
             }
         },
         dismissButton = {

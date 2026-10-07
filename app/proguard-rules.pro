@@ -19,3 +19,21 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# ---- kotlinx.serialization (modelos enviados/recibidos de Supabase) ----
+-keepattributes *Annotation*, InnerClasses, Signature, EnclosingMethod
+-keep,includedescriptorclasses class com.example.pricesapp.data.**$$serializer { *; }
+-keepclassmembers class com.example.pricesapp.data.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.example.pricesapp.data.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+# ---- Ktor / supabase-kt: clases opcionales que no existen en Android ----
+-dontwarn org.slf4j.**
+-dontwarn java.lang.management.**
+-dontwarn io.ktor.util.debug.**
+
+# Mantener nombres de línea en los stack traces de Logcat
+-keepattributes SourceFile, LineNumberTable
+-renamesourcefileattribute SourceFile

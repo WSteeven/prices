@@ -92,6 +92,31 @@ class AuthViewModel(
         }
     }
 
+    private val _passwordMessage = MutableStateFlow<String?>(null)
+    val passwordMessage: StateFlow<String?> = _passwordMessage.asStateFlow()
+
+    private val _isChangingPassword = MutableStateFlow(false)
+    val isChangingPassword: StateFlow<Boolean> = _isChangingPassword.asStateFlow()
+
+    fun changePassword(newPassword: String, onSuccess: () -> Unit) {
+        if (_isChangingPassword.value) return
+        viewModelScope.launch {
+            _isChangingPassword.value = true
+            _passwordMessage.value = when (val result = repository.changePassword(newPassword)) {
+                is AuthResult.Success -> {
+                    onSuccess()
+                    "Contraseña actualizada"
+                }
+                is AuthResult.Error -> result.message
+            }
+            _isChangingPassword.value = false
+        }
+    }
+
+    fun clearPasswordMessage() {
+        _passwordMessage.value = null
+    }
+
     fun signOut() {
         viewModelScope.launch {
             repository.signOut()

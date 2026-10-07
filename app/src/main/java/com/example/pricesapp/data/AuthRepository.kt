@@ -48,6 +48,21 @@ class AuthRepository(
         }
     }
 
+    suspend fun changePassword(newPassword: String): AuthResult {
+        return try {
+            auth.updateUser { password = newPassword }
+            AuthResult.Success
+        } catch (e: AuthRestException) {
+            when (e.error) {
+                "same_password" -> AuthResult.Error("La nueva contraseña debe ser distinta a la actual")
+                "weak_password" -> AuthResult.Error("La contraseña es muy débil")
+                else -> AuthResult.Error("No se pudo cambiar la contraseña")
+            }
+        } catch (e: Exception) {
+            AuthResult.Error(e.toUserMessage("cambiar la contraseña"))
+        }
+    }
+
     suspend fun signOut() {
         auth.signOut()
     }
