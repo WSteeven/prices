@@ -37,3 +37,15 @@
 # Mantener nombres de línea en los stack traces de Logcat
 -keepattributes SourceFile, LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# ---- ML Kit barcode (bundled) ----
+# libbarhopper_v3.so usa estas clases por nombre vía JNI y protobuf lite lee sus
+# campos por reflexión. R8 en modo completo las eliminaba y el escáner se caía
+# al abrir la cámara en el APK de release.
+-keep class com.google.android.libraries.barhopper.** { *; }
+-keep class com.google.photos.vision.barhopper.** { *; }
+-keep class com.google.barhopper.deeplearning.** { *; }
+# Los mensajes protobuf internos de ML Kit (mlkit_common, mlkit_vision_*) también
+# se leen por reflexión: se conserva ML Kit completo (~1 MB) por seguridad.
+-keep class com.google.android.gms.internal.mlkit_** { *; }
+-keep class com.google.mlkit.** { *; }
