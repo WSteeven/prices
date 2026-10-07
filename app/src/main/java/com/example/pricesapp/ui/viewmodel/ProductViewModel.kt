@@ -225,7 +225,26 @@ class ProductViewModel : ViewModel() {
         }
     }
 
-    fun getProductById(productId: String): Product? {
-        return products.value.find { it.id == productId }
+    /**
+     * Trae un producto que no está en memoria (p. ej. Android reinició la app
+     * mientras la cámara estaba abierta). [onResult] recibe false si no existe
+     * o no se pudo cargar.
+     */
+    fun loadProduct(productId: String, onResult: (Boolean) -> Unit) {
+        if (products.value.any { it.id == productId }) {
+            onResult(true)
+            return
+        }
+        viewModelScope.launch {
+            val product = runCatchingUser("cargar el producto") {
+                SupabaseClient.client.postgrest.from(PRODUCTS)
+                    .select { filter { Product::id eq productId } }
+                    .decodeSingleOrNull<Product>()
+            }
+            if (product != null && products.value.none { it.id == product.id }) {
+                _products.value = _products.value + product
+            }
+            onResult(product != null)
+        }
     }
 }

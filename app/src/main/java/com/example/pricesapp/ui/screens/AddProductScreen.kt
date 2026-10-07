@@ -16,6 +16,9 @@ import com.example.pricesapp.ui.components.ErrorSnackbarEffect
 import com.example.pricesapp.ui.components.UnitDropdown
 import com.example.pricesapp.ui.components.BarcodeScanButton
 import com.example.pricesapp.ui.components.ImagePickerButtons
+import com.example.pricesapp.ui.components.rememberImagePicker
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -39,16 +42,20 @@ fun AddProductScreen(
 ) {
     val context = LocalContext.current
 
-    var name by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var barcode by remember { mutableStateOf(initialBarcode.orEmpty()) }
+    // rememberSaveable: lo escrito sobrevive si Android reinicia la app con la cámara abierta
+    var name by rememberSaveable { mutableStateOf("") }
+    var price by rememberSaveable { mutableStateOf("") }
+    var barcode by rememberSaveable { mutableStateOf(initialBarcode.orEmpty()) }
+
+    // Antes de cualquier otro contenido: así recibe la foto aunque la app se haya reiniciado
+    val imagePicker = rememberImagePicker { productViewModel.uploadImage(it, context) }
 
     val imageUri by productViewModel.selectedImageUri.collectAsState()
     val imageUrl by productViewModel.uploadedImageUrl.collectAsState()
     val isUploading by productViewModel.isUploading.collectAsState()
     val isSaving by productViewModel.isSaving.collectAsState()
     val units by productViewModel.units.collectAsState()
-    var unitId by remember { mutableStateOf<Long?>(null) }
+    var unitId by rememberSaveable { mutableStateOf<Long?>(null) }
     val errorMessage by productViewModel.errorMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -120,22 +127,22 @@ fun AddProductScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    ImagePickerButtons(
-                        onImagePicked = { productViewModel.uploadImage(it, context) },
-                        enabled = !isUploading
-                    )
+                    ImagePickerButtons(picker = imagePicker, enabled = !isUploading)
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     imageUri?.let {
-                        AsyncImage(
-                            model = it,
-                            contentDescription = "Vista previa",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp),
-                            contentScale = ContentScale.Crop
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            AsyncImage(
+                                model = it,
+                                contentDescription = "Vista previa",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                            if (isUploading) CircularProgressIndicator()
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))

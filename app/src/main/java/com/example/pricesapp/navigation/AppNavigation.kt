@@ -28,6 +28,10 @@ import com.example.pricesapp.ui.viewmodel.ProductViewModel
 fun AppNavigation(authViewModel: AuthViewModel, productViewModel: ProductViewModel = viewModel()) {
     val authState by authViewModel.authState.collectAsState()
     val user by authViewModel.user.collectAsState()
+    // Un NavController por usuario: al cambiar de cuenta no queda historial previo.
+    // Se crea antes de la pantalla de carga para restaurar la pantalla donde
+    // estaba el usuario si Android reinició la app (p. ej. al usar la cámara).
+    val navController = key(user?.id) { rememberNavController() }
 
     when (authState) {
         AuthState.LOADING -> {
@@ -43,8 +47,6 @@ fun AppNavigation(authViewModel: AuthViewModel, productViewModel: ProductViewMod
         AuthState.AUTHENTICATED -> Unit
     }
 
-    // Un NavController nuevo por usuario: al cambiar de cuenta no queda historial previo
-    val navController = key(user?.id) { rememberNavController() }
 
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
