@@ -101,12 +101,13 @@ dependencies {
     implementation(libs.coil.compose)
 
     // CameraX
-    implementation("androidx.camera:camera-core:1.3.2")
-    implementation("androidx.camera:camera-camera2:1.3.2")
-    implementation("androidx.camera:camera-lifecycle:1.3.2")
-    implementation("androidx.camera:camera-view:1.3.2")
-// ML Kit – Barcode
-    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+
+    // ML Kit – Barcode
+    implementation(libs.mlkit.barcode.scanning)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
