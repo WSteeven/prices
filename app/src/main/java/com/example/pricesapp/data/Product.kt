@@ -23,5 +23,9 @@ data class Product(
     val barcode: String? = null,
 
     @SerialName("unit_id")
-    val unitId: Long? = null
+    val unitId: Long? = null,
+
+    /** false = desactivado (en la papelera); se puede reactivar. */
+    @SerialName("active")
+    val active: Boolean = true
 )

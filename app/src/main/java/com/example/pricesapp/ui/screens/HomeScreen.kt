@@ -21,6 +21,13 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import android.net.Uri
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.alpha
+import kotlinx.coroutines.launch
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.MaterialTheme
@@ -76,27 +83,25 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
     var showScanner by remember { mutableStateOf(false) }
     var isSearchingBarcode by remember { mutableStateOf(false) }
     var scanResult by remember { mutableStateOf<BarcodeScanResult?>(null) }
-    var productToDelete by remember { mutableStateOf<Product?>(null) }
-    val isRefreshing by productViewModel.isRefreshing.collectAsState()
+    var showInactive by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    productToDelete?.let { product ->
-        AlertDialog(
-            onDismissRequest = { productToDelete = null },
-            title = { Text("Eliminar producto") },
-            text = { Text("¿Seguro que quieres eliminar \"${product.name}\"? Esta acción no se puede deshacer.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    productViewModel.deleteProduct(product)
-                    productToDelete = null
-                }) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+    fun deactivate(product: Product) {
+        productViewModel.setActive(product, active = false) {
+            scope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                val result = snackbarHostState.showSnackbar(
+                    message = "\"${product.name}\" se movió a desactivados",
+                    actionLabel = "Deshacer",
+                    duration = SnackbarDuration.Long
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    productViewModel.setActive(product, active = true)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { productToDelete = null }) { Text("Cancelar") }
             }
-        )
+        }
     }
+    val isRefreshing by productViewModel.isRefreshing.collectAsState()
 
     if (requestCamera) {
         CameraPermission(
@@ -141,6 +146,10 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
             onCreate = { code ->
                 scanResult = null
                 navController.navigate("add_product?barcode=${Uri.encode(code)}")
+            },
+            onReactivate = { product ->
+                scanResult = null
+                productViewModel.setActive(product, active = true)
             }
         )
     }
@@ -174,14 +183,19 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate("add_product") }) {
-                Icon(Icons.Filled.Add, contentDescription = "Agregar producto")
+            if (!showInactive) {
+                FloatingActionButton(onClick = { navController.navigate("add_product") }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Agregar producto")
+                }
             }
         }
     ) { padding ->
+        val inactiveCount = products.count { !it.active }
         val filteredProducts = products.filter {
-            it.name.contains(searchText, ignoreCase = true) ||
-                it.barcode?.contains(searchText.trim()) == true
+            it.active != showInactive && (
+                it.name.contains(searchText, ignoreCase = true) ||
+                    it.barcode?.contains(searchText.trim()) == true
+                )
         }
 
         PullToRefreshBox(
@@ -202,11 +216,31 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
                 ) {
+                    item {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            FilterChip(
+                                selected = !showInactive,
+                                onClick = { showInactive = false },
+                                label = { Text("Activos (${products.size - inactiveCount})") }
+                            )
+                            FilterChip(
+                                selected = showInactive,
+                                onClick = { showInactive = true },
+                                label = { Text("Desactivados ($inactiveCount)") }
+                            )
+                        }
+                    }
                     if (filteredProducts.isEmpty()) {
                         item {
                             Text(
-                                text = if (products.isEmpty()) "No hay productos."
-                                else "Ningún producto coincide con \"$searchText\".",
+                                text = when {
+                                    searchText.isNotBlank() -> "Ningún producto coincide con \"$searchText\"."
+                                    showInactive -> "No hay productos desactivados."
+                                    else -> "No hay productos."
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 48.dp),
@@ -219,7 +253,8 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                             product = product,
                             unitLabel = units.find { it.id == product.unitId }?.abbreviation,
                             onEditClick = { navController.navigate("edit_product/${product.id}") },
-                            onDeleteClick = { productToDelete = product }
+                            onDeleteClick = { deactivate(product) },
+                            onReactivateClick = { productViewModel.setActive(product, active = true) }
                         )
                     }
                 }
@@ -233,12 +268,14 @@ fun ProductItem(
     product: Product,
     unitLabel: String?,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onReactivateClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
+            .alpha(if (product.active) 1f else 0.6f)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -261,8 +298,14 @@ fun ProductItem(
                 IconButton(onClick = onEditClick) {
                     Icon(Icons.Default.Edit, contentDescription = "Editar")
                 }
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar")
+                if (product.active) {
+                    IconButton(onClick = onDeleteClick) {
+                        Icon(Icons.Default.Delete, contentDescription = "Desactivar")
+                    }
+                } else {
+                    IconButton(onClick = onReactivateClick) {
+                        Icon(Icons.Default.Restore, contentDescription = "Reactivar")
+                    }
                 }
             }
         }
@@ -276,7 +319,8 @@ fun BarcodeResultDialog(
     result: BarcodeScanResult,
     onDismiss: () -> Unit,
     onEdit: (Product) -> Unit,
-    onCreate: (String) -> Unit
+    onCreate: (String) -> Unit,
+    onReactivate: (Product) -> Unit
 ) {
     val product = result.product
     AlertDialog(
@@ -299,13 +343,22 @@ fun BarcodeResultDialog(
                         style = MaterialTheme.typography.headlineMedium
                     )
                     Text("Código: ${result.barcode}")
+                    if (!product.active) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Este producto está desactivado.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             } else {
                 Text("No hay ningún producto con el código ${result.barcode}.")
             }
         },
         confirmButton = {
-            if (product != null) {
+            if (product != null && !product.active) {
+                TextButton(onClick = { onReactivate(product) }) { Text("Reactivar") }
+            } else if (product != null) {
                 TextButton(onClick = { onEdit(product) }) { Text("Editar") }
             } else {
                 TextButton(onClick = { onCreate(result.barcode) }) { Text("Crear producto") }

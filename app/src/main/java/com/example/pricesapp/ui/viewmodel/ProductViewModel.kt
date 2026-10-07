@@ -176,14 +176,24 @@ class ProductViewModel : ViewModel() {
         }
     }
 
-    fun deleteProduct(product: Product) {
+    /**
+     * Desactiva (active = false) o reactiva un producto. No se borra nada:
+     * los desactivados se ven en el filtro "Desactivados" y se pueden reactivar.
+     */
+    fun setActive(product: Product, active: Boolean, onDone: () -> Unit = {}) {
+        val previous = _products.value
+        // Cambio inmediato en pantalla; si falla se revierte
+        _products.value = previous.map { if (it.id == product.id) it.copy(active = active) else it }
         viewModelScope.launch {
-            val deleted = runCatchingUser("eliminar el producto") {
-                SupabaseClient.client.postgrest.from(PRODUCTS).delete {
+            val action = if (active) "reactivar el producto" else "desactivar el producto"
+            val saved = runCatchingUser(action) {
+                SupabaseClient.client.postgrest.from(PRODUCTS).update(
+                    buildJsonObject { put("active", active) }
+                ) {
                     filter { Product::id eq product.id }
                 }
             }
-            if (deleted != null) fetchProducts()
+            if (saved == null) _products.value = previous else onDone()
         }
     }
 
