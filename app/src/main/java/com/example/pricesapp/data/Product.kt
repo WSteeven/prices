@@ -20,5 +20,8 @@ data class Product(
     val imageUrl: String? = null,
 
     @SerialName("barcode")
-    val barcode: String? = null
+    val barcode: String? = null,
+
+    @SerialName("unit_id")
+    val unitId: Long? = null
 )

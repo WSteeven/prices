@@ -37,6 +37,9 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import com.example.pricesapp.ui.components.ErrorSnackbarEffect
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
@@ -62,6 +65,11 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
     val searchText by productViewModel.searchText.collectAsState()
     val isLoading by productViewModel.isLoading.collectAsState()
     val isAdmin by authViewModel.isAdmin.collectAsState()
+    val units by productViewModel.units.collectAsState()
+    val errorMessage by productViewModel.errorMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    ErrorSnackbarEffect(errorMessage, snackbarHostState, productViewModel::clearError)
 
     var requestCamera by remember { mutableStateOf(false) }
     var showScanner by remember { mutableStateOf(false) }
@@ -87,7 +95,10 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                 onBarcodeScanned = { code ->
                     showScanner = false
                     isSearchingBarcode = true
-                    productViewModel.findByBarcode(code) { product ->
+                    productViewModel.findByBarcode(
+                        code,
+                        onError = { isSearchingBarcode = false }
+                    ) { product ->
                         isSearchingBarcode = false
                         scanResult = BarcodeScanResult(code, product)
                     }
@@ -114,10 +125,12 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
     }
 
     LaunchedEffect(Unit) {
+        productViewModel.fetchUnits()
         productViewModel.fetchProducts()
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -125,7 +138,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                         value = searchText,
                         onValueChange = productViewModel::onSearchTextChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Search products") },
+                        placeholder = { Text("Buscar por nombre o código") },
                         singleLine = true
                     )
                 },
@@ -134,7 +147,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                         Icon(Icons.Filled.QrCodeScanner, contentDescription = "Buscar por código de barras")
                     }
                     IconButton(onClick = { authViewModel.signOut() }) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign Out")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Cerrar sesión")
                     }
                 }
             )
@@ -142,7 +155,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
         floatingActionButton = {
             if (isAdmin) {
                 FloatingActionButton(onClick = { navController.navigate("add_product") }) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add Product")
+                    Icon(Icons.Filled.Add, contentDescription = "Agregar producto")
                 }
             }
         }
@@ -168,7 +181,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No products found.")
+                Text("No hay productos.")
             }
         } else {
             LazyColumn(
@@ -180,6 +193,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                 items(filteredProducts) { product ->
                     ProductItem(
                         product = product,
+                        unitLabel = units.find { it.id == product.unitId }?.abbreviation,
                         onEditClick = { navController.navigate("edit_product/${product.id}") },
                         onDeleteClick = if (isAdmin) {
                             { productViewModel.deleteProduct(product) }
@@ -194,6 +208,7 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
 @Composable
 fun ProductItem(
     product: Product,
+    unitLabel: String?,
     onEditClick: () -> Unit,
     onDeleteClick: (() -> Unit)?
 ) {
@@ -217,15 +232,15 @@ fun ProductItem(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = product.name)
-                Text(text = "$${product.price}")
+                Text(text = formatPrice(product.price) + (unitLabel?.let { " / $it" } ?: ""))
             }
             Row(horizontalArrangement = Arrangement.End) {
                 IconButton(onClick = onEditClick) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit")
+                    Icon(Icons.Default.Edit, contentDescription = "Editar")
                 }
                 onDeleteClick?.let {
                     IconButton(onClick = it) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete")
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                     }
                 }
             }
@@ -260,7 +275,7 @@ fun BarcodeResultDialog(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     Text(
-                        text = "$${"%.2f".format(product.price)}",
+                        text = formatPrice(product.price),
                         style = MaterialTheme.typography.headlineMedium
                     )
                     Text("Código: ${result.barcode}")
@@ -280,3 +295,5 @@ fun BarcodeResultDialog(
         }
     )
 }
+
+fun formatPrice(price: Double): String = "$" + "%.2f".format(java.util.Locale.US, price)

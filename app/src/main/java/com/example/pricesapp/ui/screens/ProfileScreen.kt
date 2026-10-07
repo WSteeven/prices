@@ -22,13 +22,13 @@ fun ProfileScreen(authViewModel: AuthViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val profile by authViewModel.profile.collectAsState()
-        Text("Welcome!")
+        Text("Mi perfil")
         profile?.let {
             Text(it.email ?: "")
             Text("Rol: ${it.role}")
         }
         Button(onClick = { authViewModel.signOut() }) {
-            Text("Sign Out")
+            Text("Cerrar sesión")
         }
     }
 }

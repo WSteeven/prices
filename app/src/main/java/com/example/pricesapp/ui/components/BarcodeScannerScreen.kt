@@ -104,7 +104,7 @@ fun BarcodeScannerScreen(
         onClick = onClose,
         modifier = Modifier.padding(16.dp)
     ) {
-        Icon(Icons.Default.Close, contentDescription = "Close")
+        Icon(Icons.Default.Close, contentDescription = "Cerrar")
     }
 }
 

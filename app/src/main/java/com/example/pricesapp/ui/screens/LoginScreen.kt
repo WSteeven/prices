@@ -52,15 +52,15 @@ fun LoginScreen(authViewModel: AuthViewModel) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Welcome Back!",
+                    text = "Bienvenido",
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email Icon") },
+                    label = { Text("Correo") },
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Icono de correo") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -68,12 +68,12 @@ fun LoginScreen(authViewModel: AuthViewModel) {
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password Icon") },
+                    label = { Text("Contraseña") },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Icono de contraseña") },
                     trailingIcon = {
                         val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(image, contentDescription = if (passwordVisible) "Hide password" else "Show password")
+                            Icon(image, contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña")
                         }
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -87,7 +87,7 @@ fun LoginScreen(authViewModel: AuthViewModel) {
                     onClick = { authViewModel.signIn(email, password) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Sign In")
+                    Text("Iniciar sesión")
                 }
                 if (errorMessage != null) {
                     Text(

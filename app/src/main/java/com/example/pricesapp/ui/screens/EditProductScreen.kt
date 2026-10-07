@@ -22,9 +22,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import com.example.pricesapp.ui.components.ErrorSnackbarEffect
+import com.example.pricesapp.ui.components.UnitDropdown
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,6 +59,16 @@ fun EditProductScreen(
     val product = productViewModel.getProductById(productId)
 
     val uploadedImageUrl by productViewModel.uploadedImageUrl.collectAsState()
+    val isUploading by productViewModel.isUploading.collectAsState()
+    val isSaving by productViewModel.isSaving.collectAsState()
+    val units by productViewModel.units.collectAsState()
+    val errorMessage by productViewModel.errorMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    ErrorSnackbarEffect(errorMessage, snackbarHostState, productViewModel::clearError)
+
+    LaunchedEffect(Unit) { productViewModel.fetchUnits() }
+    DisposableEffect(Unit) { onDispose { productViewModel.clearImageState() } }
 
     if (product == null) {
         navController.popBackStack()
@@ -64,6 +79,7 @@ fun EditProductScreen(
     var price by remember { mutableStateOf(product.price.toString()) }
     var imageUrl by remember { mutableStateOf(product.imageUrl) }
     var barcode by remember { mutableStateOf(product.barcode ?: "") }
+    var unitId by remember { mutableStateOf(product.unitId) }
 
     // Cuando termina la subida, actualiza la URL
     LaunchedEffect(uploadedImageUrl) {
@@ -79,12 +95,13 @@ fun EditProductScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Edit Product") },
+                title = { Text("Editar producto") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
                     }
                 }
             )
@@ -108,7 +125,7 @@ fun EditProductScreen(
                     imageUrl?.let {
                         AsyncImage(
                             model = it,
-                            contentDescription = "Product image",
+                            contentDescription = "Imagen del producto",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(180.dp)
@@ -122,7 +139,7 @@ fun EditProductScreen(
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Change Image")
+                        Text("Cambiar imagen")
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -130,7 +147,7 @@ fun EditProductScreen(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Product Name") },
+                        label = { Text("Nombre del producto") },
                         enabled = isAdmin,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -142,7 +159,7 @@ fun EditProductScreen(
                         onValueChange = {
                             if (it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) price = it
                         },
-                        label = { Text("Price") },
+                        label = { Text("Precio") },
                         enabled = isAdmin,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth()
@@ -153,7 +170,17 @@ fun EditProductScreen(
                     OutlinedTextField(
                         value = barcode,
                         onValueChange = { barcode = it },
-                        label = { Text("Barcode (Optional)") },
+                        label = { Text("Código de barras (opcional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    UnitDropdown(
+                        units = units,
+                        selectedUnitId = unitId,
+                        onUnitSelected = { unitId = it },
+                        enabled = isAdmin,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -165,16 +192,17 @@ fun EditProductScreen(
                                 name = name,
                                 price = price.toDouble(),
                                 imageUrl = imageUrl,
-                                barcode = barcode.ifEmpty { null }
+                                barcode = barcode.trim().ifEmpty { null },
+                                unitId = unitId
                             )
                             productViewModel.updateProduct(updatedProduct) {
                                 navController.popBackStack()
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = name.isNotBlank() && price.isNotBlank()
+                        enabled = name.isNotBlank() && price.isNotBlank() && !isUploading && !isSaving
                     ) {
-                        Text("Save Changes")
+                        Text("Guardar cambios")
                     }
                 }
             }

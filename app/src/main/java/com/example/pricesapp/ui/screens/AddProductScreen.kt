@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.pricesapp.ui.components.ErrorSnackbarEffect
+import com.example.pricesapp.ui.components.UnitDropdown
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -42,6 +44,16 @@ fun AddProductScreen(
     val imageUri by productViewModel.selectedImageUri.collectAsState()
     val imageUrl by productViewModel.uploadedImageUrl.collectAsState()
     val isUploading by productViewModel.isUploading.collectAsState()
+    val isSaving by productViewModel.isSaving.collectAsState()
+    val units by productViewModel.units.collectAsState()
+    var unitId by remember { mutableStateOf<Long?>(null) }
+    val errorMessage by productViewModel.errorMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    ErrorSnackbarEffect(errorMessage, snackbarHostState, productViewModel::clearError)
+
+    LaunchedEffect(Unit) { productViewModel.fetchUnits() }
+    DisposableEffect(Unit) { onDispose { productViewModel.clearImageState() } }
 
 
     val launcher = rememberLauncherForActivityResult(
@@ -65,12 +77,13 @@ fun AddProductScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Add New Product") },
+                title = { Text("Nuevo producto") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
                     }
                 }
             )
@@ -93,7 +106,7 @@ fun AddProductScreen(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Product Name") },
+                        label = { Text("Nombre del producto") },
                         leadingIcon = { Icon(Icons.Default.Create, null) },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -107,9 +120,18 @@ fun AddProductScreen(
                                 price = it
                             }
                         },
-                        label = { Text("Price") },
+                        label = { Text("Precio") },
                         leadingIcon = { Icon(Icons.Default.AttachMoney, null) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    UnitDropdown(
+                        units = units,
+                        selectedUnitId = unitId,
+                        onUnitSelected = { unitId = it },
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -129,7 +151,7 @@ fun AddProductScreen(
                     imageUri?.let {
                         AsyncImage(
                             model = it,
-                            contentDescription = "Image preview",
+                            contentDescription = "Vista previa",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(180.dp),
@@ -142,7 +164,7 @@ fun AddProductScreen(
                     OutlinedTextField(
                         value = barcode,
                         onValueChange = { barcode = it },
-                        label = { Text("Barcode (Optional)") },
+                        label = { Text("Código de barras (opcional)") },
                         leadingIcon = { Icon(Icons.Default.QrCodeScanner, null) },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -171,7 +193,8 @@ fun AddProductScreen(
                                 name = name,
                                 price = price.toDouble(),
                                 imageUrl = imageUrl,
-                                barcode = barcode.ifBlank { null }
+                                barcode = barcode.trim().ifBlank { null },
+                                unitId = unitId
                             )
                             productViewModel.addProduct(product) {
                                 productViewModel.clearImageState()
@@ -183,9 +206,10 @@ fun AddProductScreen(
                             name.isNotBlank() &&
                                     price.isNotBlank() &&
                                     !isUploading &&
+                                    !isSaving &&
                                     (imageUri == null || imageUrl != null),
                     ) {
-                        Text("Save Product")
+                        Text("Guardar producto")
                     }
                 }
             }
