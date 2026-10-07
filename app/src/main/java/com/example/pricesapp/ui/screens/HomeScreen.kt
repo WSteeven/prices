@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import android.net.Uri
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +77,27 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
     var showScanner by remember { mutableStateOf(false) }
     var isSearchingBarcode by remember { mutableStateOf(false) }
     var scanResult by remember { mutableStateOf<BarcodeScanResult?>(null) }
+    var productToDelete by remember { mutableStateOf<Product?>(null) }
+    val isRefreshing by productViewModel.isRefreshing.collectAsState()
+
+    productToDelete?.let { product ->
+        AlertDialog(
+            onDismissRequest = { productToDelete = null },
+            title = { Text("Eliminar producto") },
+            text = { Text("¿Seguro que quieres eliminar \"${product.name}\"? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    productViewModel.deleteProduct(product)
+                    productToDelete = null
+                }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { productToDelete = null }) { Text("Cancelar") }
+            }
+        )
+    }
 
     if (requestCamera) {
         CameraPermission(
@@ -165,40 +188,46 @@ fun HomeScreen(navController: NavController, authViewModel: AuthViewModel, produ
                 it.barcode?.contains(searchText.trim()) == true
         }
 
-        if (isLoading || isSearchingBarcode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (products.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("No hay productos.")
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp)
-            ) {
-                items(filteredProducts) { product ->
-                    ProductItem(
-                        product = product,
-                        unitLabel = units.find { it.id == product.unitId }?.abbreviation,
-                        onEditClick = { navController.navigate("edit_product/${product.id}") },
-                        onDeleteClick = if (isAdmin) {
-                            { productViewModel.deleteProduct(product) }
-                        } else null
-                    )
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { productViewModel.fetchProducts(refresh = true) },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if ((isLoading && products.isEmpty()) || isSearchingBarcode) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                // Siempre un LazyColumn para que el gesto de refrescar funcione aunque esté vacío
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    if (filteredProducts.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (products.isEmpty()) "No hay productos."
+                                else "Ningún producto coincide con \"$searchText\".",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 48.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    items(filteredProducts, key = { it.id }) { product ->
+                        ProductItem(
+                            product = product,
+                            unitLabel = units.find { it.id == product.unitId }?.abbreviation,
+                            onEditClick = { navController.navigate("edit_product/${product.id}") },
+                            onDeleteClick = if (isAdmin) {
+                                { productToDelete = product }
+                            } else null
+                        )
+                    }
                 }
             }
         }

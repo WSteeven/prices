@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.pricesapp.data.AuthRepository
 import com.example.pricesapp.data.AuthResult
 import com.example.pricesapp.data.Profile
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,12 +15,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+enum class AuthState { LOADING, AUTHENTICATED, NOT_AUTHENTICATED }
+
 class AuthViewModel(
     private val repository: AuthRepository
 ) : ViewModel() {
 
-    private val _isAuthenticated = MutableStateFlow(false)
-    val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
+    private val _authState = MutableStateFlow(AuthState.LOADING)
+    val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
     private val _user = MutableStateFlow<UserInfo?>(null)
     val user: StateFlow<UserInfo?> = _user.asStateFlow()
@@ -31,48 +34,67 @@ class AuthViewModel(
         .map { it?.isAdmin == true }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _isSigningIn = MutableStateFlow(false)
+    val isSigningIn: StateFlow<Boolean> = _isSigningIn.asStateFlow()
+
     init {
-        restoreSession()
+        // La sesión guardada se carga de forma asíncrona: escuchamos su estado
+        // en vez de consultar currentUserOrNull() al arrancar.
+        viewModelScope.launch {
+            repository.auth.sessionStatus.collect { status ->
+                when (status) {
+                    is SessionStatus.Initializing -> _authState.value = AuthState.LOADING
+                    is SessionStatus.Authenticated -> onSignedIn(status.session.user)
+                    // Sin internet no se puede refrescar el token, pero la sesión sigue guardada
+                    is SessionStatus.RefreshFailure -> onSignedIn(repository.auth.currentUserOrNull())
+                    is SessionStatus.NotAuthenticated -> onSignedOut()
+                }
+            }
+        }
     }
 
-
-    private fun restoreSession() {
-        val user = repository.auth.currentUserOrNull()
+    private fun onSignedIn(user: UserInfo?) {
+        if (user == null) {
+            onSignedOut()
+            return
+        }
+        val userChanged = _user.value?.id != user.id
         _user.value = user
-        _isAuthenticated.value = user != null
-        loadProfile()
+        _authState.value = AuthState.AUTHENTICATED
+        if (userChanged || _profile.value == null) loadProfile(user)
     }
 
-    private fun loadProfile() {
-        val user = _user.value ?: return
+    private fun onSignedOut() {
+        _user.value = null
+        _profile.value = null
+        _authState.value = AuthState.NOT_AUTHENTICATED
+    }
+
+    private fun loadProfile(user: UserInfo) {
         viewModelScope.launch {
             _profile.value = repository.fetchProfile(user.id, user.email)
         }
     }
 
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
-
     fun signIn(email: String, password: String) {
+        if (_isSigningIn.value) return
         viewModelScope.launch {
-            when (val result = repository.signIn(email, password)) {
-                is AuthResult.Success -> {
-                    restoreSession()
-                    _errorMessage.value = null
-                }
-                is AuthResult.Error -> {
-                    _errorMessage.value = result.message
-                }
+            _isSigningIn.value = true
+            when (val result = repository.signIn(email.trim(), password)) {
+                // sessionStatus emite Authenticated y actualiza el estado
+                is AuthResult.Success -> _errorMessage.value = null
+                is AuthResult.Error -> _errorMessage.value = result.message
             }
+            _isSigningIn.value = false
         }
     }
 
     fun signOut() {
         viewModelScope.launch {
             repository.signOut()
-            _user.value = null
-            _profile.value = null
-            _isAuthenticated.value = false
         }
     }
 }

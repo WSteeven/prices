@@ -38,6 +38,7 @@ fun LoginScreen(authViewModel: AuthViewModel) {
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     val errorMessage by authViewModel.errorMessage.collectAsState()
+    val isSigningIn by authViewModel.isSigningIn.collectAsState()
 
     Column(
         modifier = Modifier
@@ -85,6 +86,7 @@ fun LoginScreen(authViewModel: AuthViewModel) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = { authViewModel.signIn(email, password) },
+                    enabled = !isSigningIn && email.isNotBlank() && password.isNotBlank(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Iniciar sesión")

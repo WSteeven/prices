@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.pricesapp.data.ImageCompressor
 import com.example.pricesapp.data.Product
 import com.example.pricesapp.data.SupabaseClient
 import com.example.pricesapp.data.UnitMeasure
@@ -12,6 +13,7 @@ import com.example.pricesapp.data.toUserMessage
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
+import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +41,9 @@ class ProductViewModel : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving = _isSaving.asStateFlow()
@@ -78,13 +83,15 @@ class ProductViewModel : ViewModel() {
             _isUploading.value = true
             _selectedImageUri.value = uri
             val url = runCatchingUser("subir la imagen") {
-                val bytes = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                } ?: throw IllegalStateException("No se pudo leer la imagen")
+                val bytes = withContext(Dispatchers.Default) {
+                    ImageCompressor.compress(context.applicationContext, uri)
+                }
 
                 val fileName = "product_${System.currentTimeMillis()}.jpg"
                 val bucket = SupabaseClient.client.storage.from(IMAGES_BUCKET)
-                bucket.upload(path = fileName, data = bytes)
+                bucket.upload(path = fileName, data = bytes) {
+                    contentType = ContentType.Image.JPEG
+                }
                 bucket.publicUrl(fileName)
             }
             if (url == null) _selectedImageUri.value = null
@@ -99,15 +106,17 @@ class ProductViewModel : ViewModel() {
         _isUploading.value = false
     }
 
-    fun fetchProducts() {
+    /** [refresh] = true cuando lo pide el usuario deslizando hacia abajo. */
+    fun fetchProducts(refresh: Boolean = false) {
         viewModelScope.launch {
-            _isLoading.value = true
+            if (refresh) _isRefreshing.value = true else _isLoading.value = true
             runCatchingUser("cargar los productos") {
                 _products.value = SupabaseClient.client.postgrest.from(PRODUCTS)
                     .select { order("name", Order.ASCENDING) }
                     .decodeList<Product>()
             }
             _isLoading.value = false
+            _isRefreshing.value = false
         }
     }
 

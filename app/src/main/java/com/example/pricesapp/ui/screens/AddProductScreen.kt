@@ -1,5 +1,7 @@
 package com.example.pricesapp.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import com.example.pricesapp.ui.components.ErrorSnackbarEffect
 import com.example.pricesapp.ui.components.UnitDropdown
+import com.example.pricesapp.ui.components.BarcodeScanButton
+import com.example.pricesapp.ui.components.ImagePickerButtons
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -38,8 +42,6 @@ fun AddProductScreen(
     var name by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var barcode by remember { mutableStateOf(initialBarcode.orEmpty()) }
-    var showScanner by remember { mutableStateOf(false) }
-    var hasCameraPermission by remember { mutableStateOf(false) }
 
     val imageUri by productViewModel.selectedImageUri.collectAsState()
     val imageUrl by productViewModel.uploadedImageUrl.collectAsState()
@@ -55,26 +57,6 @@ fun AddProductScreen(
     LaunchedEffect(Unit) { productViewModel.fetchUnits() }
     DisposableEffect(Unit) { onDispose { productViewModel.clearImageState() } }
 
-
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            productViewModel.uploadImage(it, context)
-        }
-    }
-    if (!hasCameraPermission) {
-        CameraPermission(
-            onPermissionGranted = { hasCameraPermission = true },
-            onPermissionDenied = {
-                Toast.makeText(
-                    context,
-                    "Permiso de cámara requerido",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        )
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -93,6 +75,7 @@ fun AddProductScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -137,14 +120,10 @@ fun AddProductScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Button(
-                        onClick = { launcher.launch("image/*") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Seleccionar imagen")
-                    }
+                    ImagePickerButtons(
+                        onImagePicked = { productViewModel.uploadImage(it, context) },
+                        enabled = !isUploading
+                    )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -170,27 +149,14 @@ fun AddProductScreen(
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { showScanner = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.QrCodeScanner, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Escanear código de barras")
-                    }
-                    if (showScanner && hasCameraPermission) {
-                        BarcodeScannerScreen(
-                            onBarcodeScanned = { scannedCode ->
-                                barcode = scannedCode
-                                showScanner = false
-                            },
-                            onClose = { showScanner = false }
-                        )
-                    }
+                    BarcodeScanButton(onScanned = { barcode = it })
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Button(
                         onClick = {
                             val product = Product(
-                                name = name,
+                                name = name.trim(),
                                 price = price.toDouble(),
                                 imageUrl = imageUrl,
                                 barcode = barcode.trim().ifBlank { null },

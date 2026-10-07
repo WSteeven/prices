@@ -1,5 +1,7 @@
 package com.example.pricesapp.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +28,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import com.example.pricesapp.ui.components.ErrorSnackbarEffect
 import com.example.pricesapp.ui.components.UnitDropdown
+import com.example.pricesapp.ui.components.BarcodeScanButton
+import com.example.pricesapp.ui.components.ImagePickerButtons
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -88,12 +92,6 @@ fun EditProductScreen(
         }
     }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let { productViewModel.uploadImage(it, context) }
-    }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -111,6 +109,7 @@ fun EditProductScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -133,14 +132,10 @@ fun EditProductScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    Button(
-                        onClick = { launcher.launch("image/*") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Cambiar imagen")
-                    }
+                    ImagePickerButtons(
+                        onImagePicked = { productViewModel.uploadImage(it, context) },
+                        enabled = !isUploading
+                    )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -173,6 +168,10 @@ fun EditProductScreen(
                         label = { Text("Código de barras (opcional)") },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    BarcodeScanButton(onScanned = { barcode = it })
 
                     Spacer(modifier = Modifier.height(8.dp))
 
