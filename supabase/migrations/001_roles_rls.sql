@@ -1,5 +1,6 @@
 -- =============================================================
 -- Prices App: roles (admin / empleado) + Row Level Security
+-- Reutiliza la tabla existente public.user_roles (user_id, role).
 -- Ejecutar en Supabase > SQL Editor. Es idempotente.
 -- =============================================================
 
@@ -10,28 +11,45 @@ create table if not exists public.products (
     price       numeric(10, 2) not null check (price >= 0),
     image_url   text,
     barcode     text unique,
-    created_at  timestamptz not null default now(),
-    updated_at  timestamptz not null default now()
-);
-
--- ---------- Perfiles con rol ----------
-create table if not exists public.profiles (
-    id          uuid primary key references auth.users (id) on delete cascade,
-    email       text,
-    role        text not null default 'empleado' check (role in ('admin', 'empleado')),
+    active      boolean not null default true,
     created_at  timestamptz not null default now()
 );
 
--- Crea el perfil automáticamente al registrar un usuario
+-- ---------- Roles ----------
+create table if not exists public.user_roles (
+    user_id  uuid primary key references auth.users (id) on delete cascade,
+    role     text not null default 'empleado'
+);
+
+-- Rol del usuario actual (security definer evita recursión de RLS)
+create or replace function public.get_user_role()
+returns text
+language sql
+stable
+security definer set search_path = ''
+as $$
+    select role from public.user_roles where user_id = (select auth.uid());
+$$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+    select coalesce(public.get_user_role() = 'admin', false);
+$$;
+
+-- Todo usuario nuevo empieza como empleado
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer set search_path = ''
 as $$
 begin
-    insert into public.profiles (id, email)
-    values (new.id, new.email)
-    on conflict (id) do nothing;
+    insert into public.user_roles (user_id, role)
+    select new.id, 'empleado'
+    where not exists (select 1 from public.user_roles where user_id = new.id);
     return new;
 end;
 $$;
@@ -41,70 +59,57 @@ create trigger on_auth_user_created
     after insert on auth.users
     for each row execute function public.handle_new_user();
 
--- Perfiles para usuarios que ya existían
-insert into public.profiles (id, email)
-select id, email from auth.users
-on conflict (id) do nothing;
+-- Usuarios que ya existían sin rol
+insert into public.user_roles (user_id, role)
+select u.id, 'empleado' from auth.users u
+where not exists (select 1 from public.user_roles r where r.user_id = u.id);
 
--- Helper: ¿el usuario actual es admin? (security definer evita recursión de RLS)
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-security definer set search_path = ''
-as $$
-    select exists (
-        select 1 from public.profiles
-        where id = (select auth.uid()) and role = 'admin'
-    );
-$$;
+-- Las políticas se combinan con OR: se borran las previas de estas tablas
+-- para que ninguna política vieja abra acceso extra.
+do $$
+declare pol record;
+begin
+    for pol in select tablename, policyname from pg_policies
+               where schemaname = 'public' and tablename in ('products', 'user_roles')
+    loop
+        execute format('drop policy %I on public.%I', pol.policyname, pol.tablename);
+    end loop;
+    for pol in select policyname from pg_policies
+               where schemaname = 'storage' and tablename = 'objects'
+                 and (qual like '%product-images%' or with_check like '%product-images%')
+    loop
+        execute format('drop policy %I on storage.objects', pol.policyname);
+    end loop;
+end $$;
 
--- ---------- RLS: profiles ----------
-alter table public.profiles enable row level security;
+-- ---------- RLS: user_roles ----------
+alter table public.user_roles enable row level security;
 
-drop policy if exists "profiles_select_own_or_admin" on public.profiles;
-create policy "profiles_select_own_or_admin" on public.profiles
+create policy "user_roles_select_own_or_admin" on public.user_roles
     for select to authenticated
-    using (id = (select auth.uid()) or public.is_admin());
+    using (user_id = (select auth.uid()) or public.is_admin());
 
-drop policy if exists "profiles_admin_update" on public.profiles;
-create policy "profiles_admin_update" on public.profiles
-    for update to authenticated
+create policy "user_roles_admin_write" on public.user_roles
+    for all to authenticated
     using (public.is_admin())
     with check (public.is_admin());
 
 -- ---------- RLS: products ----------
 alter table public.products enable row level security;
 
--- Las políticas se combinan con OR: borramos cualquier política previa
--- (p. ej. "Enable read access for all users") para que no abra acceso extra.
-do $$
-declare pol record;
-begin
-    for pol in select policyname from pg_policies
-               where schemaname = 'public' and tablename = 'products'
-    loop
-        execute format('drop policy %I on public.products', pol.policyname);
-    end loop;
-end $$;
-
-drop policy if exists "products_select_authenticated" on public.products;
 create policy "products_select_authenticated" on public.products
     for select to authenticated
     using (true);
 
-drop policy if exists "products_insert_admin" on public.products;
 create policy "products_insert_admin" on public.products
     for insert to authenticated
     with check (public.is_admin());
 
-drop policy if exists "products_update_authenticated" on public.products;
 create policy "products_update_authenticated" on public.products
     for update to authenticated
     using (true)
     with check (true);
 
-drop policy if exists "products_delete_admin" on public.products;
 create policy "products_delete_admin" on public.products
     for delete to authenticated
     using (public.is_admin());
@@ -113,6 +118,7 @@ create policy "products_delete_admin" on public.products
 create or replace function public.products_guard_update()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
     if not public.is_admin() then
@@ -137,20 +143,22 @@ insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
 on conflict (id) do nothing;
 
-drop policy if exists "product_images_insert_authenticated" on storage.objects;
+create policy "product_images_select_authenticated" on storage.objects
+    for select to authenticated
+    using (bucket_id = 'product-images');
+
 create policy "product_images_insert_authenticated" on storage.objects
     for insert to authenticated
     with check (bucket_id = 'product-images');
 
-drop policy if exists "product_images_update_admin" on storage.objects;
 create policy "product_images_update_admin" on storage.objects
     for update to authenticated
     using (bucket_id = 'product-images' and public.is_admin());
 
-drop policy if exists "product_images_delete_admin" on storage.objects;
 create policy "product_images_delete_admin" on storage.objects
     for delete to authenticated
     using (bucket_id = 'product-images' and public.is_admin());
 
--- ---------- Promover tu usuario a admin (cambia el correo) ----------
--- update public.profiles set role = 'admin' where email = 'tu-correo@ejemplo.com';
+-- ---------- Promover un usuario a admin ----------
+-- update public.user_roles set role = 'admin'
+-- where user_id = (select id from auth.users where email = 'tu-correo@ejemplo.com');

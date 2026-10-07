@@ -44,6 +44,7 @@ create policy "units_write_admin" on public.units_measures
 create or replace function public.products_guard_update()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
     if not public.is_admin() then

@@ -44,9 +44,9 @@ class AuthViewModel(
     }
 
     private fun loadProfile() {
-        val userId = _user.value?.id ?: return
+        val user = _user.value ?: return
         viewModelScope.launch {
-            _profile.value = repository.fetchProfile(userId)
+            _profile.value = repository.fetchProfile(user.id, user.email)
         }
     }
 

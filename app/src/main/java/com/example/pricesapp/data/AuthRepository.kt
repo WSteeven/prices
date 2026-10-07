@@ -1,5 +1,6 @@
 package com.example.pricesapp.data
 
+import android.util.Log
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.exception.AuthRestException
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -34,12 +35,15 @@ class AuthRepository(
         }
     }
 
-    suspend fun fetchProfile(userId: String): Profile? {
+    suspend fun fetchProfile(userId: String, email: String?): Profile? {
         return try {
-            postgrest.from("profiles")
-                .select { filter { eq("id", userId) } }
-                .decodeSingleOrNull<Profile>()
+            val role = postgrest.from("user_roles")
+                .select { filter { eq("user_id", userId) } }
+                .decodeSingleOrNull<UserRole>()
+                ?.role ?: UserRole.ROLE_EMPLOYEE
+            Profile(id = userId, email = email, role = role)
         } catch (e: Exception) {
+            Log.e("AuthRepository", "Error al cargar el rol", e)
             null
         }
     }
